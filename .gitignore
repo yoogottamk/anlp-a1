@@ -1,0 +1,9 @@
+venv
+__pycache__
+
+dataset.sqlite
+dataset.csv
+dataset.json
+raw-dataset.json.gz
+
+com.pkl
