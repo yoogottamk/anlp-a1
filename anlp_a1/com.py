@@ -4,6 +4,8 @@ from collections import defaultdict
 from math import sqrt
 from pathlib import Path
 
+from scipy.sparse import csc_matrix
+from scipy.sparse.linalg import svds
 from tqdm.auto import tqdm
 
 from anlp_a1.config import REPO_ROOT
@@ -18,13 +20,19 @@ class COMVectorizer:
     Generates a Co-Occurance Matrix and performs SVD to reduce dimension of vectors
     """
 
-    def __init__(self, dataset: Dataset = Dataset(), window_size: int = 5):
+    def __init__(
+        self,
+        dataset: Dataset = Dataset(),
+        window_size: int = 5,
+        vector_size: int = 1000,
+    ):
         """
         Constructor for COMVectorizer
 
         Args:
             dataset: the Dataset to use for training
             window_size: how many words to check on both sides for counting co-occurance
+            vector_size: size of vector for each word
         """
         self.dataset = dataset
 
@@ -34,12 +42,15 @@ class COMVectorizer:
         dataset.reset()
 
         self.window_size = window_size
+        self.vector_size = vector_size
 
         self.idx2word = dict(enumerate(self.wf.keys()))
         self.word2idx = {w: idx for (idx, w) in self.idx2word.items()}
 
         self.com = defaultdict(lambda: 0)
         self.__trained = False
+
+        self.features = None
 
     def subsample_probability(self, word: str, t: float = 1e-5):
         """
@@ -93,18 +104,30 @@ class COMVectorizer:
         with open(REPO_ROOT / "com.pkl", "wb") as f:
             pickle.dump(dict(self.com), f)
 
-        self.__trained
+        self.__trained = True
+
+    def svd(self):
+        r, c = zip(*self.com.keys())
+        values = list(self.com.values())
+
+        sparse_com = csc_matrix((values, (r, c)), dtype=float)
+        self.features = svds(sparse_com, k=self.vector_size)
 
     @classmethod
     def load_from_file(cls, path: Path = REPO_ROOT / "com.pkl"):
         v = cls()
         with open(path, "rb") as f:
             v.com = pickle.load(f)
-            v.__trained = True
+
+        v.__trained = True
+        v.svd()
 
         return v
 
 
 if __name__ == "__main__":
-    v = COMVectorizer()
-    v.train()
+    try:
+        v = COMVectorizer.load_from_file()
+    except:
+        v = COMVectorizer()
+        v.train()
