@@ -111,14 +111,15 @@ class COMVectorizer:
         values = list(self.com.values())
 
         sparse_com = csc_matrix((values, (r, c)), dtype=float)
-        self.features = svds(sparse_com, k=self.vector_size)
+        self.features, _, _ = svds(sparse_com, k=self.vector_size, return_singular_vectors="u")
 
     @classmethod
     def load_from_file(cls, path: Path = REPO_ROOT / "com.pkl"):
-        v = cls()
         with open(path, "rb") as f:
-            v.com = pickle.load(f)
+            com = pickle.load(f)
 
+        v = cls()
+        v.com = com
         v.__trained = True
         v.svd()
 
@@ -128,6 +129,7 @@ class COMVectorizer:
 if __name__ == "__main__":
     try:
         v = COMVectorizer.load_from_file()
-    except:
+    except Exception as e:
+        print(e)
         v = COMVectorizer()
         v.train()
