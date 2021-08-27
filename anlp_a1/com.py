@@ -27,7 +27,7 @@ class COMVectorizer:
         self,
         dataset: Dataset = Dataset(),
         window_size: int = 5,
-        vector_size: int = 1000,
+        vector_size: int = 256,
     ):
         """
         Constructor for COMVectorizer
@@ -50,7 +50,7 @@ class COMVectorizer:
         self.word2idx = {w: idx for (idx, w) in enumerate(self.wf.keys())}
 
         # the whole vocabulary won't fit in the normal way
-        # need to use a sparse matrix
+        # need to store in a sparse matrix
         #
         # this dict maps from (i, j) -> value
         self.com = defaultdict(lambda: 0)
@@ -126,7 +126,7 @@ class COMVectorizer:
         )
 
     @classmethod
-    def load_from_file(
+    def load_from_disk(
         cls,
         feat_path: Path = REPO_ROOT / "feat.npy",
         w2i_path: Path = REPO_ROOT / "w2i.pkl",
@@ -164,12 +164,17 @@ class COMVectorizer:
         Returns:
             the vector mapping learnt by Co-Occurance Matrix method
         """
+        if self.features is None:
+            raise Exception(
+                "COMVectorizer has not been trained yet. Either load weights from files or train."
+            )
+
         return self.features[self.word2idx[word]]
 
 
 if __name__ == "__main__":
     try:
-        v = COMVectorizer.load_from_file()
+        v = COMVectorizer.load_from_disk()
     except Exception as e:
         print("Couldn't load COMVectorizer from file. Training again.", e)
         v = COMVectorizer()
