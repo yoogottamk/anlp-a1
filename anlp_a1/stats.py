@@ -1,5 +1,5 @@
 import sys
-from collections import defaultdict
+from collections import Counter
 
 import pandas as pd
 from tqdm.auto import tqdm
@@ -17,7 +17,7 @@ def generate_wf(dataset: Dataset = Dataset()) -> dict:
     Returns:
         a dictionary mapping word to frequency
     """
-    wf_dict = defaultdict(lambda: 0)
+    wf_dict = Counter()
 
     for item in tqdm(dataset, desc="Calculating word frequencies"):
         # for w in [*item["summary"].split(), *item["review"].split()]:
