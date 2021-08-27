@@ -17,7 +17,7 @@ from anlp_a1.dataset import Dataset
 from anlp_a1.stats import generate_wf
 
 
-def __subsample_probability(wf: dict, word: str, t: float = 1e-5):
+def _subsample_probability(wf: dict, word: str, t: float = 1e-5):
     """
     Subsampling
 
@@ -32,7 +32,7 @@ def __subsample_probability(wf: dict, word: str, t: float = 1e-5):
     return sqrt(t / wf[word])
 
 
-def __com_calculator(
+def _com_calculator(
     window_size: int, wf: dict, word2idx: dict, ds_start_idx: int, ds_end_idx: int
 ):
     """
@@ -52,7 +52,7 @@ def __com_calculator(
 
     idx_iter = range(ds_start_idx, ds_end_idx)
     if ds_start_idx == 0:
-        idx_iter = tqdm(idx_iter)
+        idx_iter = tqdm(idx_iter, desc="Training COMVectorizer [w0]")
 
     for i in idx_iter:
         item = local_ds[i]
@@ -71,7 +71,7 @@ def __com_calculator(
             subsampled_words = [
                 w
                 for w in surrounding_words
-                if __subsample_probability(wf, w) < random.uniform(0, 1)
+                if _subsample_probability(wf, w) < random.uniform(0, 1)
             ]
 
             for com_word in subsampled_words:
@@ -136,9 +136,9 @@ class COMVectorizer:
         # class objects are not pickle-able.
         # define a top-level function for core implementation for
         # `COMVectorizer.subsample_probability` and call that instead
-        return __subsample_probability(self.wf, word, t)
+        return _subsample_probability(self.wf, word, t)
 
-    def train(self, n_procs: int = multiprocessing.cpu_count()):
+    def train(self, n_procs: int = multiprocessing.cpu_count() - 1):
         """
         Train the COMVectorizer
 
@@ -148,6 +148,7 @@ class COMVectorizer:
         Args:
             n_procs: number of processes to use
         """
+        n_procs = max(n_procs, 1)
         total_size = len(self.dataset)
         chunk_size = total_size // n_procs
 
@@ -156,14 +157,17 @@ class COMVectorizer:
 
         args = [
             (self.window_size, self.wf, self.word2idx, indices[i], indices[i + 1])
-            for i in range(len(indices))
+            for i in range(len(indices) - 1)
         ]
 
         with multiprocessing.Pool(n_procs) as pool:
-            local_coms = pool.starmap(__com_calculator, args)
+            local_coms = pool.starmap(_com_calculator, args)
 
-        for com in local_coms:
+        for com in tqdm(local_coms, desc="Aggregating COM"):
             self.com += com
+
+        # free up some memory
+        del local_coms
 
         self.compress_com_using_svd()
 
