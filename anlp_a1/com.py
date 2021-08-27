@@ -50,7 +50,11 @@ def __com_calculator(
     local_ds = Dataset()
     local_com = Counter()
 
-    for i in tqdm(range(ds_start_idx, ds_end_idx)):
+    idx_iter = range(ds_start_idx, ds_end_idx)
+    if ds_start_idx == 0:
+        idx_iter = tqdm(idx_iter)
+
+    for i in idx_iter:
         item = local_ds[i]
         word_list = item["review"].split()
 
