@@ -91,11 +91,7 @@ class COMVectorizer:
     Generates a Co-Occurance Matrix and performs SVD to reduce dimension of vectors
     """
 
-    def __init__(
-        self,
-        window_size: int = 5,
-        vector_size: int = 256,
-    ):
+    def __init__(self, window_size: int = 5, vector_size: int = 256):
         """
         Constructor for COMVectorizer
 
@@ -122,22 +118,6 @@ class COMVectorizer:
         self.com = Counter()
         self.features = None
 
-    def subsample_probability(self, word: str, t: float = 1e-5):
-        """
-        Subsampling
-
-        Calculates the probability to keep a word
-        https://papers.nips.cc/paper/2013/file/9aa42b31882ec039965f3c4923ce901b-Paper.pdf
-
-        Args:
-            word: word in vocab
-            t: subsampling threshold
-        """
-        # class objects are not pickle-able.
-        # define a top-level function for core implementation for
-        # `COMVectorizer.subsample_probability` and call that instead
-        return _subsample_probability(self.wf, word, t)
-
     def train(self, n_procs: int = multiprocessing.cpu_count() - 1):
         """
         Train the COMVectorizer
@@ -155,10 +135,14 @@ class COMVectorizer:
         indices = [i * chunk_size for i in range(n_procs)]
         indices.append(total_size)
 
+        # reverse the argument list
+        # this displays the progress bar where `ds_start_idx` is 0
+        # by reversing the list, the progress bar mimics actual completion closely as
+        # the progress bar process will be the last one to start
         args = [
             (self.window_size, self.wf, self.word2idx, indices[i], indices[i + 1])
             for i in range(len(indices) - 1)
-        ]
+        ][::-1]
 
         with multiprocessing.Pool(n_procs) as pool:
             local_coms = pool.starmap(_com_calculator, args)
@@ -238,14 +222,17 @@ class COMVectorizer:
 
         return self.features[self.word2idx[word]]
 
+    def __contains__(self, word: str):
+        """
+        Membership test: check if word is in vocabulary
+        """
+        return word in self.word2idx
+
 
 if __name__ == "__main__":
     try:
         v = COMVectorizer.load_from_disk()
     except Exception as e:
-        print("Couldn't load COMVectorizer from file. Training again.", e)
+        print("Couldn't load COMVectorizer from file. Training from scratch.", e)
         v = COMVectorizer()
         v.train()
-
-    # `the` is basically guaranteed to be present in vocab
-    print(v["the"])
