@@ -5,14 +5,14 @@ from pathlib import Path
 import numpy as np
 from openTSNE import TSNE
 
-from anlp_a1.config import REPO_ROOT
+from anlp_a1.config import DATA_ROOT
 
 
 class COMTSNE:
     def __init__(
         self,
-        feats_path: Path = REPO_ROOT / "feat.npy",
-        w2i_path: Path = REPO_ROOT / "w2i.pkl",
+        feats_path: Path = DATA_ROOT / "feat.npy",
+        w2i_path: Path = DATA_ROOT / "w2i.pkl",
     ):
         self.feats = np.load(feats_path)
         with open(w2i_path, "rb") as f:

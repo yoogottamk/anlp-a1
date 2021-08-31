@@ -12,12 +12,12 @@ from scipy.sparse import csc_matrix
 from scipy.sparse.linalg import svds
 from tqdm.auto import tqdm
 
-from anlp_a1.config import REPO_ROOT
+from anlp_a1.config import DATA_ROOT
 from anlp_a1.dataset import Dataset
 from anlp_a1.stats import generate_wf
 
 
-def _subsample_probability(wf: dict, word: str, t: float = 1e-5):
+def _subsample_probability(wf: dict, word: str, t: float = 1e-5) -> float:
     """
     Subsampling
 
@@ -34,7 +34,7 @@ def _subsample_probability(wf: dict, word: str, t: float = 1e-5):
 
 def _com_calculator(
     window_size: int, wf: dict, word2idx: dict, ds_start_idx: int, ds_end_idx: int
-):
+) -> Counter:
     """
     COM Calculator
 
@@ -155,11 +155,11 @@ class COMVectorizer:
 
         self.compress_com_using_svd()
 
-        with open(REPO_ROOT / "com.pkl", "wb") as f:
+        with open(DATA_ROOT / "com.pkl", "wb") as f:
             pickle.dump(dict(self.com), f)
-        with open(REPO_ROOT / "w2i.pkl", "wb") as f:
+        with open(DATA_ROOT / "w2i.pkl", "wb") as f:
             pickle.dump(dict(self.word2idx), f)
-        np.save(REPO_ROOT / "feat.npy", self.features)
+        np.save(DATA_ROOT / "feat.npy", self.features)
 
     def compress_com_using_svd(self):
         """
@@ -179,8 +179,8 @@ class COMVectorizer:
     @classmethod
     def load_from_disk(
         cls,
-        feat_path: Path = REPO_ROOT / "feat.npy",
-        w2i_path: Path = REPO_ROOT / "w2i.pkl",
+        feat_path: Path = DATA_ROOT / "feat.npy",
+        w2i_path: Path = DATA_ROOT / "w2i.pkl",
     ) -> COMVectorizer:
         """
         Load crucial inference components from file

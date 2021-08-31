@@ -1,7 +1,7 @@
 import sqlite3
 from pathlib import Path
 
-from anlp_a1.config import REPO_ROOT
+from anlp_a1.config import DATA_ROOT
 
 
 class Dataset:
@@ -11,7 +11,7 @@ class Dataset:
     Should be used as an iterator, although, indexing is also supported
     """
 
-    def __init__(self, path: Path = REPO_ROOT / "dataset.sqlite", frac: float = 1):
+    def __init__(self, path: Path = DATA_ROOT / "dataset.sqlite", frac: float = 1):
         self.__conn = sqlite3.connect(path)
 
         # calculate and store length once
