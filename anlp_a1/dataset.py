@@ -52,7 +52,7 @@ class Dataset:
             .fetchone()
         )
 
-        return dict(zip(["review", "summary"], row))
+        return dict(zip(["review"], row))
 
     def __del__(self):
         self.__conn.close()

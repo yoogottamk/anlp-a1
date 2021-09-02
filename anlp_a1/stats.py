@@ -20,7 +20,6 @@ def generate_wf(dataset: Dataset = Dataset()) -> dict:
     wf_dict = Counter()
 
     for item in tqdm(dataset, desc="Calculating word frequencies"):
-        # for w in [*item["summary"].split(), *item["review"].split()]:
         for w in item["review"].split():
             wf_dict[w] += 1
 

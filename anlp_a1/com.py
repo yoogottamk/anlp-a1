@@ -71,7 +71,7 @@ def _com_calculator(
             subsampled_words = [
                 w
                 for w in surrounding_words
-                if _subsample_probability(wf, w) < random.uniform(0, 1)
+                if _subsample_probability(wf, w) < random.uniform(0, 1) and wf[w] >= 5
             ]
 
             for com_word in subsampled_words:

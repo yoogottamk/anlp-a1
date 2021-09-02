@@ -3,8 +3,8 @@
 set -o errexit -o pipefail
 
 RAW_DATASET_HASH=e4524af6c644cd044b1969bac7b62b2a
-EXTRACTED_DATASET_HASH=b915140882630ecaae00f9a8c1d64dde
-CSV_DATASET_HASH=e81b04ac19b24304f3c60575e6632819
+EXTRACTED_DATASET_HASH=cbd85b22e1f50c163c55486e4c384210
+CSV_DATASET_HASH=92fae3a147e8c8d8204a0e38198b4bd7
 
 function download_dataset {
     curl -fSL \
@@ -15,7 +15,7 @@ function download_dataset {
 function extract_dataset {
     gunzip \
         < raw-dataset.json.gz \
-        | jq --indent 0 '{review: .reviewText | ascii_downcase | gsub("[^ a-z]"; ""), summary: .summary | ascii_downcase | gsub("[^ a-z]"; "") }' \
+        | jq --indent 0 '{review: .reviewText | ascii_downcase | gsub("[^ a-z]"; "")}' \
         | pv -F "[JSON] Rate: %r | Avg: %a | %t" \
         > ./dataset.json
 }
@@ -40,4 +40,4 @@ EOF
 [[ $( md5sum dataset.json | cut -d' ' -f1 ) = $EXTRACTED_DATASET_HASH ]] || extract_dataset
 [[ $( md5sum dataset.csv | cut -d' ' -f1 ) = $CSV_DATASET_HASH ]] || generate_csv_dataset
 
-generate_sqlite_dataset 
+generate_sqlite_dataset
