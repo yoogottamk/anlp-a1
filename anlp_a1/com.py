@@ -15,6 +15,7 @@ from tqdm.auto import tqdm
 from anlp_a1.config import DATA_ROOT
 from anlp_a1.dataset import Dataset
 from anlp_a1.stats import generate_wf
+from anlp_a1.utils import get_word_windows
 
 
 def _subsample_probability(wf: dict, word: str, t: float = 1e-5) -> float:
@@ -58,16 +59,7 @@ def _com_calculator(
         item = local_ds[i]
         word_list = item["review"].split()
 
-        for idx in range(len(word_list)):
-            start_idx = max(ds_start_idx, idx - window_size)
-            end_idx = min(ds_end_idx, idx + window_size)
-
-            word = word_list[idx]
-            surrounding_words = [
-                *word_list[start_idx:idx],
-                *word_list[idx + 1 : end_idx],
-            ]
-
+        for surrounding_words, word in get_word_windows(word_list, window_size):
             subsampled_words = [
                 w
                 for w in surrounding_words
@@ -91,7 +83,7 @@ class COMVectorizer:
     Generates a Co-Occurance Matrix and performs SVD to reduce dimension of vectors
     """
 
-    def __init__(self, window_size: int = 5, vector_size: int = 256):
+    def __init__(self, window_size: int = 3, vector_size: int = 64):
         """
         Constructor for COMVectorizer
 
@@ -236,3 +228,4 @@ if __name__ == "__main__":
         print("Couldn't load COMVectorizer from file. Training from scratch.", e)
         v = COMVectorizer()
         v.train()
+        print(v["camera"])

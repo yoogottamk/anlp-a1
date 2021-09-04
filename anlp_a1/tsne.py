@@ -56,7 +56,6 @@ if __name__ == "__main__":
     com_tsne = COMTSNE()
     com_tsne.compute(
         perplexity=50,
-        initialization="pca",
         n_jobs=multiprocessing.cpu_count(),
         verbose=True,
     )
