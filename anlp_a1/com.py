@@ -7,6 +7,7 @@ import random
 from collections import Counter
 from math import sqrt
 from pathlib import Path
+from typing import List, Tuple
 
 import numpy as np
 from scipy.sparse import csc_matrix
@@ -58,13 +59,13 @@ def _com_calculator(
 
     for i in idx_iter:
         item = local_ds[i]
-        word_list = item["review"].split()
+        word_list = [w for w in item["review"].split() if w in wf]
 
         for surrounding_words, word in get_word_windows(word_list, window_size):
             subsampled_words = [
                 w
                 for w in surrounding_words
-                if _subsample_probability(wf, w) < random.uniform(0, 1) and wf[w] >= 5
+                if _subsample_probability(wf, w) < random.uniform(0, 1)
             ]
 
             for com_word in subsampled_words:
@@ -98,7 +99,8 @@ class COMVectorizer:
         if not skip_setup:
             self.dataset = Dataset()
             # this will exhaust the iterator
-            self.wf = generate_wf(self.dataset)
+            wf = generate_wf(self.dataset)
+            self.wf = {w: f for (w, f) in wf.items() if f >= 5}
             # reset it
             self.dataset.reset()
             self.word2idx = {w: idx for (idx, w) in enumerate(self.wf.keys())}
@@ -170,6 +172,31 @@ class COMVectorizer:
         self.features, _, _ = svds(
             sparse_com, k=self.vector_size, return_singular_vectors="u"
         )
+
+    def top_n_similar(self, word: str, n: int = 10) -> List[Tuple[float, str]]:
+        assert word in self.word2idx, "Word not in vocabulary"
+
+        if self.features is None:
+            self.train()
+
+        idx2word = {i: w for (w, i) in self.word2idx.items()}
+
+        word_feat = self.features[self.word2idx[word]]
+        cosine_sim = (
+            (self.features * word_feat)
+            / (np.c_[np.linalg.norm(self.features, axis=1)] * np.linalg.norm(word_feat))
+        ).sum(1)
+
+        n_most_similar = np.argpartition(cosine_sim, -(n + 1))
+        sim_word = [
+            (cosine_sim[i], idx2word[i])
+            for i in n_most_similar[-(n + 1) :]
+            if i != self.word2idx[word]
+        ]
+
+        sim_word.sort(key=lambda x: x[0], reverse=True)
+
+        return sim_word
 
     @classmethod
     def load_from_disk(
