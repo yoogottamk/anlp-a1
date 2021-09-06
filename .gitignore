@@ -8,4 +8,4 @@ raw-dataset.json.gz
 
 com.pkl
 w2i.pkl
-feat.npy
+com-feat.npy

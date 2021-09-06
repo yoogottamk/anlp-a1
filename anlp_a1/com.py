@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import code
 import multiprocessing
 import pickle
 import random
@@ -83,25 +84,27 @@ class COMVectorizer:
     Generates a Co-Occurance Matrix and performs SVD to reduce dimension of vectors
     """
 
-    def __init__(self, window_size: int = 3, vector_size: int = 64):
+    def __init__(
+        self, window_size: int = 3, vector_size: int = 64, skip_setup: bool = False
+    ):
         """
         Constructor for COMVectorizer
 
         Args:
             window_size: how many words to check on both sides for counting co-occurance
             vector_size: size of vector for each word
+            skip_setup: should wf calculation be skipped?
         """
-        self.dataset = Dataset()
-
-        # this will exhaust the iterator
-        self.wf = generate_wf(self.dataset)
-        # reset it
-        self.dataset.reset()
+        if not skip_setup:
+            self.dataset = Dataset()
+            # this will exhaust the iterator
+            self.wf = generate_wf(self.dataset)
+            # reset it
+            self.dataset.reset()
+            self.word2idx = {w: idx for (idx, w) in enumerate(self.wf.keys())}
 
         self.window_size = window_size
         self.vector_size = vector_size
-
-        self.word2idx = {w: idx for (idx, w) in enumerate(self.wf.keys())}
 
         # the whole vocabulary won't fit in the normal way
         # need to store in a sparse matrix
@@ -151,7 +154,7 @@ class COMVectorizer:
             pickle.dump(dict(self.com), f)
         with open(DATA_ROOT / "w2i.pkl", "wb") as f:
             pickle.dump(dict(self.word2idx), f)
-        np.save(DATA_ROOT / "feat.npy", self.features)
+        np.save(DATA_ROOT / "com-feat.npy", self.features)
 
     def compress_com_using_svd(self):
         """
@@ -171,7 +174,7 @@ class COMVectorizer:
     @classmethod
     def load_from_disk(
         cls,
-        feat_path: Path = DATA_ROOT / "feat.npy",
+        feat_path: Path = DATA_ROOT / "com-feat.npy",
         w2i_path: Path = DATA_ROOT / "w2i.pkl",
     ) -> COMVectorizer:
         """
@@ -191,7 +194,7 @@ class COMVectorizer:
 
         feats = np.load(feat_path)
 
-        v = cls()
+        v = cls(skip_setup=True)
         v.word2idx = w2i
         v.features = feats
 
@@ -228,4 +231,14 @@ if __name__ == "__main__":
         print("Couldn't load COMVectorizer from file. Training from scratch.", e)
         v = COMVectorizer()
         v.train()
-        print(v["camera"])
+
+    code.interact(
+        banner="\n".join(
+            [
+                "v is a COMVectorizer object",
+                "Try running v['camera']",
+                "For more details, run help(COMVectorizer)",
+            ]
+        ),
+        local=dict(globals(), **locals()),
+    )

@@ -1,5 +1,6 @@
 import sys
 from collections import Counter
+from typing import Dict
 
 import pandas as pd
 from tqdm.auto import tqdm
@@ -7,7 +8,7 @@ from tqdm.auto import tqdm
 from anlp_a1.dataset import Dataset
 
 
-def generate_wf(dataset: Dataset = Dataset()) -> dict:
+def generate_wf(dataset: Dataset = Dataset()) -> Dict[str, int]:
     """
     Generates a word frequency dict
 
