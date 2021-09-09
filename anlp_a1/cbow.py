@@ -139,7 +139,7 @@ def collate_fn(x):
 
 
 if __name__ == "__main__":
-    train_ds = CBOWDataset(frac=0.25)
+    train_ds = CBOWDataset(frac=0.05)
     val_ds = CBOWDataset(frac=1e-4)
 
     checkpoint_callback = ModelCheckpoint(
