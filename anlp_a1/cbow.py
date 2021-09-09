@@ -33,19 +33,19 @@ class CBOWVectorizer(pl.LightningModule):
         self.loss = nn.NLLLoss()
         self.wf = wf
         self.w2i = {w: i for (i, w) in enumerate(self.wf)}
+        self.i2w = {i: w for (w, i) in self.w2i.items()}
 
     def forward(self, x):
         emb = self.em(x)
-        emb = emb.sum(dim=1)
-        out = self.l1(emb)
-
-        return out
+        return emb
 
     def training_step(self, batch, _batch_idx):
         context_idx, word_idx = batch
         context_idx = torch.LongTensor(context_idx)
 
-        out = self(context_idx)
+        emb = self(context_idx)
+        emb = emb.sum(dim=1)
+        out = self.l1(emb)
         prob = self.log_softmax(out)
         loss = self.loss(prob.view(len(word_idx), -1), torch.LongTensor(word_idx))
         self.log("train_loss", loss, prog_bar=True)
@@ -64,6 +64,10 @@ class CBOWVectorizer(pl.LightningModule):
     def configure_optimizers(self):
         optimizer = optim.SGD(self.parameters(), lr=1e-3)
         return optimizer
+
+    def __getitem__(self, word: str):
+        assert word in self.w2i, "Word doesn't exist in vocabulary"
+        return self(torch.LongTensor(self.w2i[word]))
 
 
 class CBOWDataset(TorchDataset):
