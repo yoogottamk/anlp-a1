@@ -145,7 +145,7 @@ class CBOWVectorizer(pl.LightningModule):
 
     def __getitem__(self, word: str):
         assert word in self.w2i, "Word doesn't exist in vocabulary"
-        return self(torch.LongTensor([self.w2i[word]]))[0]
+        return self(torch.LongTensor([self.w2i[word]]))[0].detach().numpy()
 
     def top_n_similar(self, word: str, n: int = 10) -> List[Tuple[float, str]]:
         assert word in self.w2i, "Word not in vocabulary"
