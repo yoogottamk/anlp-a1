@@ -78,7 +78,7 @@ class CBOWVectorizer(pl.LightningModule):
     def top_n_similar(self, word: str, n: int = 10) -> List[Tuple[float, str]]:
         assert word in self.w2i, "Word not in vocabulary"
 
-        sd = self.l1.state_dict()
+        sd = self.em.state_dict()
         features = sd["weight"].numpy()
 
         word_feat = features[self.w2i[word]]
@@ -87,16 +87,17 @@ class CBOWVectorizer(pl.LightningModule):
             / (np.c_[np.linalg.norm(features, axis=1)] * np.linalg.norm(word_feat))
         ).sum(1)
 
-        n_most_similar = np.argpartition(cosine_sim, -(n + 1))
+        # add extra to avoid the padding
+        n_most_similar = np.argpartition(cosine_sim, -(n + 2))
         sim_word = [
             (cosine_sim[i], self.i2w[i])
-            for i in n_most_similar[-(n + 1) :]
+            for i in n_most_similar[-(n + 2) :]
             if i != self.w2i[word]
         ]
 
         sim_word.sort(key=lambda x: x[0], reverse=True)
 
-        return sim_word
+        return sim_word[:-1]
 
 
 class CBOWDataset(TorchDataset):
