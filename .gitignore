@@ -1,8 +1,8 @@
 venv
 __pycache__
 
-# pytorch-lightning/wandb
-wandb
-anlp-a1-anlp_a1
-
-model.ckpt
+cbow.ckpt
+dataset.sqlite
+wf.pkl
+w2i.pkl
+com-feat.npy
