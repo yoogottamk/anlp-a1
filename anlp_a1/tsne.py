@@ -1,25 +1,22 @@
+from abc import ABC
 import multiprocessing
 import pickle
 from pathlib import Path
+from typing import Dict, Union
 
 import numpy as np
+import torch
 from openTSNE import TSNE
 
 from anlp_a1.config import DATA_ROOT
 
 
-class COMTSNE:
-    def __init__(
-        self,
-        feats_path: Path = DATA_ROOT / "com-feat.npy",
-        w2i_path: Path = DATA_ROOT / "w2i.pkl",
-    ):
-        self.feats = np.load(feats_path)
-        with open(w2i_path, "rb") as f:
-            self.word2idx = pickle.load(f)
-        self.idx2word = {i: w for (w, i) in self.word2idx.items()}
-
-        self.feat_2d = None
+class BaseTSNE(ABC):
+    def __init__(self):
+        self.word2idx: Dict[str, int] = {}
+        self.idx2word: Dict[int, str] = {}
+        self.feat_2d: Union[None, np.ndarray] = None
+        self.feats: np.ndarray
 
     def compute(self, **tsne_kwargs):
         tsne = TSNE(**tsne_kwargs)
@@ -50,6 +47,38 @@ class COMTSNE:
         score_word.sort(key=lambda x: x[0])
 
         return score_word
+
+
+class COMTSNE(BaseTSNE):
+    def __init__(
+        self,
+        feats_path: Path = DATA_ROOT / "com-feat.npy",
+        w2i_path: Path = DATA_ROOT / "w2i.pkl",
+    ):
+        self.feats = np.load(feats_path)
+        with open(w2i_path, "rb") as f:
+            self.word2idx = pickle.load(f)
+        self.idx2word = {i: w for (w, i) in self.word2idx.items()}
+
+        self.feat_2d = None
+
+
+class CBOWTSNE:
+    def __init__(
+        self,
+        model_path: Path = DATA_ROOT / "cbow.ckpt",
+        wf_path: Path = DATA_ROOT / "wf.pkl",
+    ):
+        self.feats = torch.load(model_path, map_location=torch.device("cpu"))[
+            "state_dict"
+        ]["em.weight"].numpy()
+        with open(wf_path, "rb") as f:
+            self.wf = pickle.load(f)
+
+        self.word2idx = {w: i for (i, w) in enumerate(self.wf)}
+        self.idx2word = {i: w for (w, i) in self.word2idx.items()}
+
+        self.feat_2d = None
 
 
 if __name__ == "__main__":
