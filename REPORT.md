@@ -10,7 +10,7 @@
 ### CBOW
  - embedding size: 128
  - window size: 2
- - dataset: first 5% of the reviews
+ - dataset: first 5% of the reviews (9M context-word pairs)
  - no subsampling
  - optimizer: Adam
  - learning rate: 1e-3, decays to 10% on plateau

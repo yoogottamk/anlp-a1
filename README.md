@@ -62,3 +62,9 @@ wv.most_similar("camera", topn=10)
  ('tripod', 0.6189837455749512),
  ('EyeToy_USB', 0.6173486709594727)]
 ```
+
+### reason for using smaller portion for CBOW
+ - memory usage was very high
+ - time taken for training was very high (45m per epoch on 5% of the dataset). On full dataset this would've been impossible
+
+In COM, we needed to go through the dataset once and it ran pretty fast as well.
