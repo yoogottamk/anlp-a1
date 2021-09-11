@@ -8,7 +8,7 @@ from tqdm.auto import tqdm
 from anlp_a1.dataset import Dataset
 
 
-def generate_wf(dataset: Dataset = Dataset()) -> Dict[str, int]:
+def generate_wf(dataset: Dataset) -> Dict[str, int]:
     """
     Generates a word frequency dict
 
@@ -27,7 +27,7 @@ def generate_wf(dataset: Dataset = Dataset()) -> Dict[str, int]:
     return wf_dict
 
 
-def get_wf_df(dataset: Dataset = Dataset()) -> pd.DataFrame:
+def get_wf_df(dataset: Dataset) -> pd.DataFrame:
     """
     Generates a word-frequency pd.DataFrame for statistical analysis
 
