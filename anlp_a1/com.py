@@ -263,7 +263,8 @@ if __name__ == "__main__":
         banner="\n".join(
             [
                 "v is a COMVectorizer object",
-                "Try running v['camera']",
+                "Try running v['camera'] to get the embeddings for that word",
+                "Run v.top_n_similar('camera') to get the top 10 words related to given word",
                 "For more details, run help(COMVectorizer)",
             ]
         ),

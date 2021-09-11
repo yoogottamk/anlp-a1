@@ -1,4 +1,10 @@
+from __future__ import annotations
+
+import pickle
+import code
+from anlp_a1.config import DATA_ROOT
 from collections import Counter
+from pathlib import Path
 from typing import Dict, List, Tuple
 
 import numpy as np
@@ -11,93 +17,6 @@ from torch.utils.data import DataLoader
 from torch.utils.data import Dataset as TorchDataset
 
 from anlp_a1.dataset import Dataset
-
-
-class CBOWVectorizer(pl.LightningModule):
-    def __init__(self, wf: Dict[str, int], vector_size: int = 64):
-        """
-        Constructor for CBOWVectorizer
-
-        Args:
-            vector_size: size of vector for each word
-        """
-        self.vector_size = vector_size
-
-        super().__init__()
-
-        self.vocab_size = len(wf)
-        self.em = nn.Embedding(self.vocab_size, self.vector_size, padding_idx=0)
-        self.l1 = nn.Linear(self.vector_size, self.vocab_size, bias=False)
-
-        self.log_softmax = nn.LogSoftmax(dim=1)
-        self.loss = nn.NLLLoss()
-        self.wf = wf
-        self.w2i = {w: i for (i, w) in enumerate(self.wf)}
-        self.i2w = {i: w for (w, i) in self.w2i.items()}
-
-    def forward(self, x):
-        emb = self.em(x)
-        return emb
-
-    def _forward(self, batch):
-        context_idx, word_idx = batch
-        context_idx = torch.LongTensor(context_idx).to(self.device)
-
-        emb = self(context_idx)
-        emb = emb.sum(dim=1)
-        out = self.l1(emb)
-        prob = self.log_softmax(out)
-        loss = self.loss(
-            prob.view(len(word_idx), -1), torch.LongTensor(word_idx).to(self.device)
-        )
-        return loss
-
-    def training_step(self, batch, _batch_idx):
-        loss = self._forward(batch)
-        self.log("train_loss", loss, prog_bar=True)
-
-        return loss
-
-    def validation_step(self, batch, _batch_idx):
-        loss = self._forward(batch)
-        self.log("val_loss", loss, prog_bar=True)
-
-    def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters(), lr=1e-3)
-        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer)
-        return {
-            "optimizer": optimizer,
-            "lr_scheduler": scheduler,
-            "monitor": "train_loss",
-        }
-
-    def __getitem__(self, word: str):
-        assert word in self.w2i, "Word doesn't exist in vocabulary"
-        return self(torch.LongTensor([self.w2i[word]]))
-
-    def top_n_similar(self, word: str, n: int = 10) -> List[Tuple[float, str]]:
-        assert word in self.w2i, "Word not in vocabulary"
-
-        sd = self.em.state_dict()
-        features = sd["weight"].numpy()
-
-        word_feat = features[self.w2i[word]]
-        cosine_sim = (
-            (features * word_feat)
-            / (np.c_[np.linalg.norm(features, axis=1)] * np.linalg.norm(word_feat))
-        ).sum(1)
-
-        # add extra to avoid the padding
-        n_most_similar = np.argpartition(cosine_sim, -(n + 2))
-        sim_word = [
-            (cosine_sim[i], self.i2w[i])
-            for i in n_most_similar[-(n + 2) :]
-            if i != self.w2i[word]
-        ]
-
-        sim_word.sort(key=lambda x: x[0], reverse=True)
-
-        return sim_word[:-1]
 
 
 class CBOWDataset(TorchDataset):
@@ -166,6 +85,109 @@ class CBOWDataset(TorchDataset):
         return self.len
 
 
+class CBOWVectorizer(pl.LightningModule):
+    def __init__(self, wf: Dict[str, int], vector_size: int = 128):
+        """
+        Constructor for CBOWVectorizer
+
+        Args:
+            vector_size: size of vector for each word
+        """
+        self.vector_size = vector_size
+
+        super().__init__()
+
+        self.vocab_size = len(wf)
+        self.em = nn.Embedding(self.vocab_size, self.vector_size, padding_idx=0)
+        self.l1 = nn.Linear(self.vector_size, self.vocab_size, bias=False)
+
+        self.log_softmax = nn.LogSoftmax(dim=1)
+        self.loss = nn.NLLLoss()
+        self.wf = wf
+        self.w2i = {w: i for (i, w) in enumerate(self.wf)}
+        self.i2w = {i: w for (w, i) in self.w2i.items()}
+
+    def forward(self, x):
+        emb = self.em(x)
+        return emb
+
+    def _forward(self, batch):
+        context_idx, word_idx = batch
+        context_idx = torch.LongTensor(context_idx).to(self.device)
+
+        emb = self(context_idx)
+        emb = emb.sum(dim=1)
+        out = self.l1(emb)
+        prob = self.log_softmax(out)
+        loss = self.loss(
+            prob.view(len(word_idx), -1), torch.LongTensor(word_idx).to(self.device)
+        )
+        return loss
+
+    def training_step(self, batch, _batch_idx):
+        loss = self._forward(batch)
+        self.log("train_loss", loss, prog_bar=True)
+
+        return loss
+
+    def validation_step(self, batch, _batch_idx):
+        loss = self._forward(batch)
+        self.log("val_loss", loss, prog_bar=True)
+
+    def configure_optimizers(self):
+        optimizer = optim.Adam(self.parameters(), lr=1e-3)
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer)
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": scheduler,
+            "monitor": "train_loss",
+        }
+
+    def __getitem__(self, word: str):
+        assert word in self.w2i, "Word doesn't exist in vocabulary"
+        return self(torch.LongTensor([self.w2i[word]]))[0]
+
+    def top_n_similar(self, word: str, n: int = 10) -> List[Tuple[float, str]]:
+        assert word in self.w2i, "Word not in vocabulary"
+
+        sd = self.em.state_dict()
+        features = sd["weight"].numpy()
+
+        word_feat = features[self.w2i[word]]
+        cosine_sim = (
+            (features * word_feat)
+            / (np.c_[np.linalg.norm(features, axis=1)] * np.linalg.norm(word_feat))
+        ).sum(1)
+
+        # add extra to avoid the padding
+        n_most_similar = np.argpartition(cosine_sim, -(n + 2))
+        sim_word = [
+            (cosine_sim[i], self.i2w[i])
+            for i in n_most_similar[-(n + 2) :]
+            if i != self.w2i[word]
+        ]
+
+        sim_word.sort(key=lambda x: x[0], reverse=True)
+
+        return sim_word[:-1]
+
+    @classmethod
+    def load_from_disk(
+        cls,
+        weight_path: Path = DATA_ROOT / "cbow.ckpt",
+        wf_path: Path = DATA_ROOT / "wf.pkl",
+    ) -> CBOWVectorizer:
+        with open(wf_path, "rb") as f:
+            wf = pickle.load(f)
+
+        v = cls(wf=wf, vector_size=128)
+        v.load_state_dict(
+            torch.load(weight_path, map_location=torch.device("cpu"))["state_dict"]
+        )
+
+        return v
+
+
 def collate_fn(x):
     context_ret = [_x[0] for _x in x]
     word_ret = [_x[1] for _x in x]
@@ -173,12 +195,12 @@ def collate_fn(x):
     return context_ret, word_ret
 
 
-if __name__ == "__main__":
+def train():
     train_ds = CBOWDataset(frac=5e-2)
     val_ds = CBOWDataset(frac=1e-4)
 
     checkpoint_callback = ModelCheckpoint(
-        "/home/yoogottamk/anlp-a1",
+        "./checkpoints",
         filename="{epoch}-{val_loss:.2f}",
         monitor="val_loss",
         save_top_k=1,
@@ -189,7 +211,7 @@ if __name__ == "__main__":
 
     trainer = pl.Trainer(
         gpus=-1,
-        max_epochs=100,
+        max_epochs=5,
         logger=WandbLogger("cbow", project="anlp-a1"),
         callbacks=[checkpoint_callback],
     )
@@ -199,4 +221,25 @@ if __name__ == "__main__":
         DataLoader(val_ds, num_workers=38, batch_size=256, collate_fn=collate_fn),
     )
 
-    trainer.save_checkpoint("/home/yoogottamk/anlp-a1/model.ckpt")
+    return v
+
+
+if __name__ == "__main__":
+    try:
+        v = CBOWVectorizer.load_from_disk()
+    except Exception as e:
+        print("Couldn't load CBOWVectorizer from file. Training from scratch.", e)
+        v = train()
+
+    v.eval()
+    code.interact(
+        banner="\n".join(
+            [
+                "v is a CBOWVectorizer object",
+                "Try running v['camera'] to get the embeddings for that word",
+                "Run v.top_n_similar('camera') to get the top 10 words related to given word",
+                "For more details, run help(CBOWVectorizer)",
+            ]
+        ),
+        local=dict(globals(), **locals()),
+    )
