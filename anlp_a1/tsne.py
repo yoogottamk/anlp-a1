@@ -1,4 +1,5 @@
 from abc import ABC
+from matplotlib import pyplot as plt
 import multiprocessing
 import pickle
 from pathlib import Path
@@ -25,28 +26,49 @@ class BaseTSNE(ABC):
     def top_n_similar(self, word: str, n: int = 10):
         assert word in self.word2idx, "Word not in vocabulary"
 
-        if self.feat_2d is None:
-            self.compute()
+        word_feat = self.feats[self.word2idx[word]]
+        cosine_sim = (
+            (self.feats * word_feat)
+            / (np.c_[np.linalg.norm(self.feats, axis=1)] * np.linalg.norm(word_feat))
+        ).sum(1)
 
-        word_idx = self.word2idx[word]
-        word_2d = self.feat_2d[word_idx]
-
-        distance_2d = ((self.feat_2d - word_2d) ** 2).sum(axis=1)
-
-        n_most_similar_idx = np.argpartition(distance_2d, n + 1)
-
-        score_word = [
-            # store score, word
-            (distance_2d[i], self.idx2word[i])
-            # for all top n words
-            for i in n_most_similar_idx[: n + 1]
-            # except the one that was queried
-            if i != word_idx
+        # add extra to avoid the padding
+        n_most_similar = np.argpartition(cosine_sim, -(n + 2))
+        sim_word = [
+            (cosine_sim[i], self.idx2word[i])
+            for i in n_most_similar[-(n + 2) :]
+            if i != self.word2idx[word]
         ]
 
-        score_word.sort(key=lambda x: x[0])
+        sim_word.sort(key=lambda x: x[0], reverse=True)
 
-        return score_word
+        return sim_word[:-1]
+
+    def plot_tsne_neighbours(self, word: str, n: int = 10):
+        nearest_neighbors = self.top_n_similar(word, n)
+        neighbor_idx = [self.word2idx[w] for (_, w) in nearest_neighbors]
+        word_idx = self.word2idx[word]
+
+        fig, (ax0, ax1) = plt.subplots(2, 1, figsize=(5, 8))
+        N = self.feat_2d.shape[0]
+        random_idx = np.random.choice(N, size=int(N*0.1), replace=False)
+        ax0.scatter(self.feat_2d[random_idx, 0], self.feat_2d[random_idx, 1], s=8)
+
+        for neigh in neighbor_idx:
+            x, y = self.feat_2d[neigh]
+            ax0.scatter(x, y, color="orange")
+            ax1.scatter(x, y, color="orange")
+            ax1.text(x, y, self.idx2word[neigh])
+
+        x, y = self.feat_2d[word_idx]
+        ax0.scatter(x, y, color="red")
+        ax1.scatter(x, y, color="red")
+        ax1.text(x, y, word)
+
+        ax0.title.set_text(word)
+
+        fig.savefig(f"tsne-{word}.png")
+        plt.close(fig)
 
 
 class COMTSNE(BaseTSNE):
@@ -81,10 +103,13 @@ class CBOWTSNE(BaseTSNE):
         self.feat_2d = None
 
 
-if __name__ == "__main__":
-    com_tsne = COMTSNE()
-    com_tsne.compute(
+def get_tsne(cls: BaseTSNE):
+    tsne = cls()
+    tsne.compute(
         perplexity=50,
         n_jobs=multiprocessing.cpu_count(),
         verbose=True,
     )
+    return tsne
+
+get_tsne(CBOWTSNE).plot_tsne_neighbours("camera")
