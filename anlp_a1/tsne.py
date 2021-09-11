@@ -1,12 +1,12 @@
-from abc import ABC
-from matplotlib import pyplot as plt
 import multiprocessing
 import pickle
+from abc import ABC
 from pathlib import Path
 from typing import Dict, Union
 
 import numpy as np
 import torch
+from matplotlib import pyplot as plt
 from openTSNE import TSNE
 
 from anlp_a1.config import DATA_ROOT
@@ -51,7 +51,7 @@ class BaseTSNE(ABC):
 
         fig, (ax0, ax1) = plt.subplots(2, 1, figsize=(5, 8))
         N = self.feat_2d.shape[0]
-        random_idx = np.random.choice(N, size=int(N*0.1), replace=False)
+        random_idx = np.random.choice(N, size=int(N * 0.1), replace=False)
         ax0.scatter(self.feat_2d[random_idx, 0], self.feat_2d[random_idx, 1], s=8)
 
         for neigh in neighbor_idx:
@@ -67,7 +67,7 @@ class BaseTSNE(ABC):
 
         ax0.title.set_text(word)
 
-        fig.savefig(f"tsne-{word}.png")
+        fig.savefig(f"{self.__class__.__name__}-{word}.png")
         plt.close(fig)
 
 
@@ -111,5 +111,6 @@ def get_tsne(cls: BaseTSNE):
         verbose=True,
     )
     return tsne
+
 
 get_tsne(CBOWTSNE).plot_tsne_neighbours("camera")
