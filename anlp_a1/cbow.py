@@ -4,8 +4,8 @@ from typing import Dict, List, Tuple
 import numpy as np
 import pytorch_lightning as pl
 import torch
-from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
+from pytorch_lightning.loggers import WandbLogger
 from torch import nn, optim
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset as TorchDataset
@@ -27,7 +27,7 @@ class CBOWVectorizer(pl.LightningModule):
 
         self.vocab_size = len(wf)
         self.em = nn.Embedding(self.vocab_size, self.vector_size, padding_idx=0)
-        self.l1 = nn.Linear(self.vector_size, self.vocab_size)
+        self.l1 = nn.Linear(self.vector_size, self.vocab_size, bias=False)
 
         self.log_softmax = nn.LogSoftmax(dim=1)
         self.loss = nn.NLLLoss()
@@ -39,35 +39,64 @@ class CBOWVectorizer(pl.LightningModule):
         emb = self.em(x)
         return emb
 
-    def training_step(self, batch, _batch_idx):
+    def _forward(self, batch):
         context_idx, word_idx = batch
-        context_idx = torch.LongTensor(context_idx)
+        context_idx = torch.LongTensor(context_idx).to(self.device)
 
         emb = self(context_idx)
         emb = emb.sum(dim=1)
         out = self.l1(emb)
         prob = self.log_softmax(out)
-        loss = self.loss(prob.view(len(word_idx), -1), torch.LongTensor(word_idx))
+        loss = self.loss(
+            prob.view(len(word_idx), -1), torch.LongTensor(word_idx).to(self.device)
+        )
+        return loss
+
+    def training_step(self, batch, _batch_idx):
+        loss = self._forward(batch)
         self.log("train_loss", loss, prog_bar=True)
 
         return loss
 
     def validation_step(self, batch, _batch_idx):
-        context_idx, word_idx = batch
-        context_idx = torch.LongTensor(context_idx)
-
-        out = self(context_idx)
-        prob = self.log_softmax(out)
-        loss = self.loss(prob.view(len(word_idx), -1), torch.LongTensor(word_idx))
+        loss = self._forward(batch)
         self.log("val_loss", loss, prog_bar=True)
 
     def configure_optimizers(self):
-        optimizer = optim.SGD(self.parameters(), lr=1e-3)
-        return optimizer
+        optimizer = optim.Adam(self.parameters(), lr=1e-3)
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer)
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": scheduler,
+            "monitor": "train_loss",
+        }
 
     def __getitem__(self, word: str):
         assert word in self.w2i, "Word doesn't exist in vocabulary"
-        return self(torch.LongTensor(self.w2i[word]))
+        return self(torch.LongTensor([self.w2i[word]]))
+
+    def top_n_similar(self, word: str, n: int = 10) -> List[Tuple[float, str]]:
+        assert word in self.w2i, "Word not in vocabulary"
+
+        sd = self.l1.state_dict()
+        features = sd["weight"].numpy()
+
+        word_feat = features[self.w2i[word]]
+        cosine_sim = (
+            (features * word_feat)
+            / (np.c_[np.linalg.norm(features, axis=1)] * np.linalg.norm(word_feat))
+        ).sum(1)
+
+        n_most_similar = np.argpartition(cosine_sim, -(n + 1))
+        sim_word = [
+            (cosine_sim[i], self.i2w[i])
+            for i in n_most_similar[-(n + 1) :]
+            if i != self.w2i[word]
+        ]
+
+        sim_word.sort(key=lambda x: x[0], reverse=True)
+
+        return sim_word
 
 
 class CBOWDataset(TorchDataset):
@@ -77,7 +106,8 @@ class CBOWDataset(TorchDataset):
         ds = Dataset(frac=frac)
         # make the 0th entry bogus
         # need to use it later for padding
-        _wf = Counter({".": 0})
+        # freq needs to be >= 5 for it to get in
+        _wf = Counter({".": 5})
 
         for item in ds:
             word_list = item["review"].split()
@@ -143,28 +173,29 @@ def collate_fn(x):
 
 
 if __name__ == "__main__":
-    train_ds = CBOWDataset(frac=0.05)
+    train_ds = CBOWDataset(frac=5e-2)
     val_ds = CBOWDataset(frac=1e-4)
 
     checkpoint_callback = ModelCheckpoint(
         "/home/yoogottamk/anlp-a1",
         filename="{epoch}-{val_loss:.2f}",
         monitor="val_loss",
-        mode="min",
         save_top_k=1,
+        save_last=True,
     )
 
-    v = CBOWVectorizer(wf=train_ds.wf)
+    v = CBOWVectorizer(wf=train_ds.wf, vector_size=128)
 
     trainer = pl.Trainer(
+        gpus=-1,
         max_epochs=100,
-        logger=WandbLogger("anlp-a1-cbow"),
+        logger=WandbLogger("cbow", project="anlp-a1"),
         callbacks=[checkpoint_callback],
     )
     trainer.fit(
         v,
-        DataLoader(train_ds, num_workers=38, batch_size=128, collate_fn=collate_fn),
-        DataLoader(val_ds, num_workers=38, batch_size=128, collate_fn=collate_fn),
+        DataLoader(train_ds, num_workers=38, batch_size=256, collate_fn=collate_fn),
+        DataLoader(val_ds, num_workers=38, batch_size=256, collate_fn=collate_fn),
     )
 
     trainer.save_checkpoint("/home/yoogottamk/anlp-a1/model.ckpt")
