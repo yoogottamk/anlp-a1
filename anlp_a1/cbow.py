@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import pickle
 import code
-from anlp_a1.config import DATA_ROOT
+import pickle
 from collections import Counter
 from pathlib import Path
 from typing import Dict, List, Tuple
@@ -16,6 +15,7 @@ from torch import nn, optim
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset as TorchDataset
 
+from anlp_a1.config import DATA_ROOT
 from anlp_a1.dataset import Dataset
 
 

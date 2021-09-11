@@ -11,7 +11,7 @@ from anlp_a1.config import DATA_ROOT
 class COMTSNE:
     def __init__(
         self,
-        feats_path: Path = DATA_ROOT / "feat.npy",
+        feats_path: Path = DATA_ROOT / "com-feat.npy",
         w2i_path: Path = DATA_ROOT / "w2i.pkl",
     ):
         self.feats = np.load(feats_path)
