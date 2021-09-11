@@ -49,7 +49,7 @@ class BaseTSNE(ABC):
         neighbor_idx = [self.word2idx[w] for (_, w) in nearest_neighbors]
         word_idx = self.word2idx[word]
 
-        fig, (ax0, ax1) = plt.subplots(2, 1, figsize=(5, 8))
+        fig, (ax0, ax1) = plt.subplots(2, 1, figsize=(8, 8))
         N = self.feat_2d.shape[0]
         random_idx = np.random.choice(N, size=int(N * 0.1), replace=False)
         ax0.scatter(self.feat_2d[random_idx, 0], self.feat_2d[random_idx, 1], s=8)
@@ -57,15 +57,16 @@ class BaseTSNE(ABC):
         for neigh in neighbor_idx:
             x, y = self.feat_2d[neigh]
             ax0.scatter(x, y, color="orange")
-            ax1.scatter(x, y, color="orange")
+            ax1.scatter(x, y, color=np.random.rand(3,), label=self.idx2word[neigh])
             ax1.text(x, y, self.idx2word[neigh])
 
         x, y = self.feat_2d[word_idx]
         ax0.scatter(x, y, color="red")
-        ax1.scatter(x, y, color="red")
+        ax1.scatter(x, y, color="red", label=word)
         ax1.text(x, y, word)
 
         ax0.title.set_text(word)
+        ax1.legend(loc="lower right", ncol=4, bbox_to_anchor=(1, 0), bbox_transform=fig.transFigure)
 
         fig.savefig(f"{self.__class__.__name__}-{word}.png")
         plt.close(fig)
@@ -103,14 +104,15 @@ class CBOWTSNE(BaseTSNE):
         self.feat_2d = None
 
 
-def get_tsne(cls: BaseTSNE):
-    tsne = cls()
-    tsne.compute(
-        perplexity=50,
-        n_jobs=multiprocessing.cpu_count(),
-        verbose=True,
-    )
-    return tsne
+if __name__ == "__main__":
+    word_list = ["mobile", "bad", "good", "working", "running"]
 
+    com_tsne = COMTSNE()
+    com_tsne.compute(perplexity=50, n_jobs=multiprocessing.cpu_count(), verbose=True)
 
-get_tsne(CBOWTSNE).plot_tsne_neighbours("camera")
+    cbow_tsne = CBOWTSNE()
+    cbow_tsne.compute(perplexity=50, n_jobs=multiprocessing.cpu_count(), verbose=True)
+
+    for word in word_list:
+        com_tsne.plot_tsne_neighbours(word)
+        cbow_tsne.plot_tsne_neighbours(word)
