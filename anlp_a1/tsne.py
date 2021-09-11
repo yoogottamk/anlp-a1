@@ -63,7 +63,7 @@ class COMTSNE(BaseTSNE):
         self.feat_2d = None
 
 
-class CBOWTSNE:
+class CBOWTSNE(BaseTSNE):
     def __init__(
         self,
         model_path: Path = DATA_ROOT / "cbow.ckpt",
